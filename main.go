@@ -52,6 +52,7 @@ func main() {
 	e := echo.New()
 
 	// Middleware
+	e.Use(middleware.RemoveTrailingSlash())
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
@@ -80,6 +81,8 @@ func main() {
 
 	categoryRoute := e.Group("/categories")
 	categoryRoute.POST("", categoryController.Create)
+	categoryRoute.GET("", categoryController.Get)
+	categoryRoute.DELETE("", categoryController.Delete)
 
 	for _, route := range e.Routes() {
 		log.Printf("%s %s\n", route.Method, route.Path)

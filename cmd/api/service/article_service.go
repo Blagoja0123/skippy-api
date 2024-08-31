@@ -45,13 +45,13 @@ func (as *ArticleService) Get(ctx context.Context, params map[string]string) ([]
 		}
 		switch {
 		case strings.HasSuffix(value, "m"):
-			last = last.AddDate(0, -duration, 0) // Subtract months
+			last = last.AddDate(0, -duration, 0)
 		case strings.HasSuffix(value, "w"):
-			last = last.AddDate(0, 0, -duration*7) // Subtract weeks
+			last = last.AddDate(0, 0, -duration*7)
 		case strings.HasSuffix(value, "d"):
-			last = last.AddDate(0, 0, -duration) // Subtract days
+			last = last.AddDate(0, 0, -duration)
 		case strings.HasSuffix(value, "h"):
-			last = last.Add(-time.Duration(duration) * time.Hour) // Subtract hours
+			last = last.Add(-time.Duration(duration) * time.Hour)
 		default:
 			log.Println("Invalid suffix in within_last parameter")
 			return nil, fmt.Errorf("invalid suffix in within_last parameter")
@@ -60,11 +60,9 @@ func (as *ArticleService) Get(ctx context.Context, params map[string]string) ([]
 		query.Where("created_at >= ?", last)
 	}
 
-	var pageLimit int
+	pageLimit := 15
 
-	if value, exists := params["limit"]; !exists {
-		pageLimit = 15
-	} else {
+	if value, exists := params["limit"]; exists {
 		pageLimit, _ = strconv.Atoi(value)
 	}
 
@@ -78,7 +76,7 @@ func (as *ArticleService) Get(ctx context.Context, params map[string]string) ([]
 		query.Offset(offset)
 	}
 
-	if err := query.Order("created_at DESC").Find(&articles).Error; err != nil {
+	if err := query.Order("RANDOM()").Limit(pageLimit).Find(&articles).Error; err != nil {
 		return nil, err
 	}
 

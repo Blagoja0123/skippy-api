@@ -25,8 +25,9 @@ func NewAuthController(service *service.AuthService) *AuthController {
 func (ac *AuthController) Register(ctx echo.Context) error {
 
 	var req struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
+		Username  string `json:"username"`
+		Password  string `json:"password"`
+		LikedCats *uint  `json:"liked_categories"`
 	}
 
 	if err := ctx.Bind(&req); err != nil {
@@ -39,8 +40,9 @@ func (ac *AuthController) Register(ctx echo.Context) error {
 	}
 
 	user := &models.User{
-		Username:     req.Username,
-		PasswordHash: hashedPassword,
+		Username:        req.Username,
+		PasswordHash:    hashedPassword,
+		LikedCategoryID: req.LikedCats,
 	}
 
 	if err := ac.service.Register(ctx.Request().Context(), user); err != nil {
