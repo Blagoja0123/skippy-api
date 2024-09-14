@@ -45,6 +45,7 @@ type Article struct {
 	SectionName        string `json:"sectionName"`
 	WebTitle           string `json:"webTitle"`
 	WebPublicationDate string `json:"webPublicationDate"`
+	WebUrl             string `json:"WebUrl"`
 	Fields             Fields `json:"fields"`
 	Tags               []Tag  `json:"tags"`
 }
@@ -119,6 +120,7 @@ func (gp *GuardianProvider) GetArticles(ctx context.Context) (map[string]interfa
 				ImageURL:   article.Fields.Thumbnail,
 				CreatedAt:  pubDate,
 				CategoryID: category.ID,
+				Origin:     article.WebUrl,
 			}
 			start := time.Now().UnixMilli()
 			err = gp.artService.Create(ctx, &newArticle)

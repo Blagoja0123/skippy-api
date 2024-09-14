@@ -57,26 +57,18 @@ func (as *ArticleService) Get(ctx context.Context, params map[string]string) ([]
 			return nil, fmt.Errorf("invalid suffix in within_last parameter")
 		}
 
-		query.Where("created_at >= ?", last)
+		query.Where("created_at > ?", last)
 	}
 
-	pageLimit := 15
+	var limit int
 
 	if value, exists := params["limit"]; exists {
-		pageLimit, _ = strconv.Atoi(value)
+		limit, _ = strconv.Atoi(value)
+	} else {
+		limit = 100
 	}
 
-	if value, exists := params["source"]; exists {
-		query.Where("source = ?", value)
-	}
-
-	if value, exists := params["page"]; exists {
-		value, _ := strconv.Atoi(value)
-		offset := value - 1*pageLimit
-		query.Offset(offset)
-	}
-
-	if err := query.Order("RANDOM()").Limit(pageLimit).Find(&articles).Error; err != nil {
+	if err := query.Order("created_at desc").Limit(limit).Find(&articles).Error; err != nil {
 		return nil, err
 	}
 
@@ -108,7 +100,7 @@ func (as *ArticleService) Create(ctx context.Context, body *models.Article) erro
 		body.ImageURL = "https://help.nytimes.com/hc/theming_assets/01HZPCK5BKMK9ZRNEE1Y6J1PHW"
 	}
 	if body.Source == "The Guardian" && body.ImageURL == "" {
-		body.ImageURL = "https://p7.hiclipart.com/preview/707/137/261/the-guardian-guardian-media-group-theguardian-com-news-journalism-the-guardian-logo.jpg"
+		body.ImageURL = "https://pbs.twimg.com/profile_images/1175141826870861825/K2qKoGla_400x400.png"
 	}
 	return as.db.WithContext(ctx).Model(&models.Article{}).Create(body).Error
 }

@@ -26,17 +26,14 @@ func (ac *ArticleController) Get(ctx echo.Context) error {
 	if ctx.QueryParam("category_id") != "" {
 		params["category_id"] = ctx.QueryParam("category_id")
 	}
-	if ctx.QueryParam("limit") != "" {
-		params["limit"] = ctx.QueryParam("limit")
-	}
-	if ctx.QueryParam("page") != "" {
-		params["page"] = ctx.QueryParam("page")
-	}
 	if ctx.QueryParam("source") != "" {
 		params["source"] = ctx.QueryParam("source")
 	}
 	if ctx.QueryParam("within_last") != "" {
 		params["within_last"] = ctx.QueryParam("within_last")
+	}
+	if ctx.QueryParam("limit") != "" {
+		params["limit"] = ctx.QueryParam("limit")
 	}
 
 	res, err := ac.service.Get(ctx.Request().Context(), params)
