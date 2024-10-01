@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	controller "github.com/Blagoja0123/skippy/cmd/api/controllers"
@@ -14,9 +13,9 @@ import (
 	"github.com/Blagoja0123/skippy/cmd/api/provider"
 	"github.com/Blagoja0123/skippy/cmd/api/scraper"
 	"github.com/Blagoja0123/skippy/cmd/api/service"
+	"github.com/Blagoja0123/skippy/custom_middleware"
 	"github.com/Blagoja0123/skippy/models"
 	"github.com/Blagoja0123/skippy/storage"
-	"github.com/golang-jwt/jwt"
 	"github.com/joho/godotenv"
 
 	// echojwt "github.com/labstack/echo-jwt/v4"
@@ -24,42 +23,6 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/robfig/cron"
 )
-
-func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(ctx echo.Context) error {
-		ctx.Response().Header().Add("User", "Authorization")
-		authHeader := ctx.Request().Header.Get("Authorization")
-		// fmt.Println(authHeader)
-		if !strings.HasPrefix(authHeader, "Bearer ") {
-			return ctx.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized access"})
-		}
-
-		authHeaderSplit := strings.Split(authHeader, " ")
-		accessToken := authHeaderSplit[1]
-
-		token, err := jwt.Parse(accessToken, func(t *jwt.Token) (interface{}, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
-			}
-
-			return []byte(os.Getenv("JWT_SECRET_KEY")), nil
-		})
-
-		if err != nil {
-			return ctx.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid token"})
-		}
-
-		// Validate the token claims
-		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			ctx.Set("userID", claims["id"])
-			ctx.Set("username", claims["username"])
-		} else {
-			return ctx.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized access"})
-		}
-
-		return next(ctx)
-	}
-}
 
 func main() {
 	// Echo instance
@@ -93,21 +56,11 @@ func main() {
 	e := echo.New()
 
 	// Middleware
-	// e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-	// 	AllowOrigins: []string{"http://localhost:4321/", "http://localhost:4321"},
-	// 	AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
-	// 	AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
-	// }))
-
 	e.Use(middleware.CORS())
 	e.Use(middleware.RemoveTrailingSlash())
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	// e.Use(echojwt.WithConfig(echojwt.Config{
-	// 	SigningKey: []byte(os.Getenv("JWT_SECRET_KEY")),
-	// }))
 
-	// Routes
 	e.GET("/", hello)
 	e.GET("/health", handlers.HealthCheckHandler)
 
@@ -124,7 +77,7 @@ func main() {
 
 	userController := controller.NewUserController(userService, articleService)
 
-	userRoute := e.Group("/users", AuthMiddleware)
+	userRoute := e.Group("/users", custom_middleware.AuthMiddleware)
 	userRoute.GET("", userController.GetByID)
 	userRoute.PATCH("", userController.Update)
 	userRoute.GET("/feed", userController.GetFeed)
@@ -145,42 +98,36 @@ func main() {
 	categoryRoute.GET("", categoryController.Get)
 	categoryRoute.DELETE("", categoryController.Delete)
 
-	// for _, route := range e.Routes() {
-	// 	log.Printf("%s %s\n", route.Method, route.Path)
-	// }
-
 	loc, _ := time.LoadLocation("Europe/Skopje")
 
-	cronGuardian := cron.NewWithLocation(loc)
-	cronGuardian.AddFunc("@every 4h", func() {
-		sections := []string{"politics", "business", "sport", "film", "technology", "science"}
+	cronPV := cron.NewWithLocation(loc)
+	cronPV.AddFunc("@every 4h", func() {
+		sectionsGD := []string{"politics", "business", "sport", "film", "technology", "science"}
 		queryParams := map[string]string{
 			"page-size":   "50",
 			"show-fields": "body",
 			"show-tags":   "keyword",
 		}
-		gp := provider.NewGuardianProvider("https://content.guardianapis.com/search", sections, queryParams, os.Getenv("GUARDIAN_KEY"), categoryService, articleService)
-		_, err := gp.GetArticles(context.Background())
-		if err != nil {
-			log.Fatal(err)
+		gp := provider.NewGuardianProvider("https://content.guardianapis.com/search", sectionsGD, queryParams, os.Getenv("GUARDIAN_KEY"), categoryService, articleService)
+
+		sectionsNYT := []string{"business", "politics", "sports", "movies", "technology", "science"}
+
+		nyt := provider.NewNYTimesProvider("https://api.nytimes.com/svc/topstories/v2/", sectionsNYT, nil, os.Getenv("NYT_KEY"), categoryService, articleService)
+
+		providers := []provider.Provider{gp, nyt}
+
+		for _, pv := range providers {
+			articles, err := pv.GetArticles(context.Background())
+
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			log.Printf("Wrote: %d\n", len(articles))
 		}
-		log.Println("Wrote Guardian articles")
 	})
-	cronGuardian.Start()
+	cronPV.Start()
 
-	cronNYT := cron.NewWithLocation(loc)
-	cronNYT.AddFunc("@every 4h", func() {
-		sections := []string{"business", "politics", "sports", "movies", "technology", "science"}
-
-		nyt := provider.NewNYTimesProvider("https://api.nytimes.com/svc/topstories/v2/", sections, nil, os.Getenv("NYT_KEY"), categoryService, articleService)
-
-		_, err := nyt.GetArticles(context.Background())
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Println("Wrote NYT articles")
-	})
-	cronNYT.Start()
 	cronSC := cron.NewWithLocation(loc)
 	cronSC.AddFunc("@every 4h", func() {
 

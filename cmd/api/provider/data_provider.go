@@ -13,7 +13,7 @@ import (
 )
 
 type Provider interface {
-	GetArticles() (map[string]interface{}, error)
+	GetArticles(context.Context) (map[string]interface{}, error)
 }
 
 type GuardianProvider struct {
