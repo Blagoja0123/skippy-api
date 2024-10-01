@@ -65,7 +65,7 @@ func (as *ArticleService) Get(ctx context.Context, params map[string]string) ([]
 	if value, exists := params["limit"]; exists {
 		limit, _ = strconv.Atoi(value)
 	} else {
-		limit = 100
+		limit = 300
 	}
 
 	if err := query.Order("created_at desc").Limit(limit).Find(&articles).Error; err != nil {

@@ -2,7 +2,6 @@ package controller
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -57,11 +56,13 @@ func (uc *UserController) GetFeed(ctx echo.Context) error {
 	for _, cat := range user.LikedCategoryID {
 		categories += strconv.Itoa(int(cat)) + ","
 	}
-	fmt.Println("Category string:", categories)
+
 	if categories == "" {
-		ctx.JSON(http.StatusInternalServerError, errors.New("user has no liked categories"))
+		return ctx.JSON(http.StatusInternalServerError, errors.New("user has no liked categories"))
 	}
-	fmt.Println("Liked Categories:", user.LikedCategoryID)
+	if len(user.LikedCategoryID) == 0 {
+		return ctx.JSON(http.StatusInternalServerError, errors.New("user has no liked categories"))
+	}
 	categories = strings.TrimRight(categories, ", ")
 
 	articles, err := uc.artService.Get(ctx.Request().Context(), map[string]string{
